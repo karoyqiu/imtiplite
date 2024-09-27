@@ -5,6 +5,8 @@
 #include "imtiplite.h"
 
 #define MAX_LOADSTRING 100
+#define WINDOW_WIDTH    9
+#define WINDOW_HEIGHT   9
 
 // 全局变量:
 HINSTANCE hInst;                                // 当前实例
@@ -64,7 +66,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 //
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-    WNDCLASSEXW wcex;
+    WNDCLASSEXW wcex = { 0 };
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
@@ -76,7 +78,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IMTIPLITE));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_IMTIPLITE);
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
@@ -97,19 +98,37 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // 将实例句柄存储在全局变量中
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+   HWND hWnd = CreateWindowExW(WS_EX_LAYERED, szWindowClass, szTitle, WS_POPUP,
+      CW_USEDEFAULT, 0, WINDOW_WIDTH, WINDOW_HEIGHT, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
    {
       return FALSE;
    }
 
+   auto hRgn = CreateEllipticRgn(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+   SetWindowRgn(hWnd, hRgn, FALSE);
+
+   SetLayeredWindowAttributes(hWnd, RGB(0, 0, 0), 200, LWA_ALPHA);
    ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
 
    return TRUE;
 }
+
+
+static void OnPaint(HWND hWnd)
+{
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint(hWnd, &ps);
+    
+    // TODO: 在此处添加使用 hdc 的任何绘图代码...
+    static auto hBrush = CreateSolidBrush(RGB(255, 82, 82));
+    RECT rect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
+    FillRect(hdc, &rect, hBrush);
+
+    EndPaint(hWnd, &ps);
+}
+
 
 //
 //  函数: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -125,39 +144,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    case WM_COMMAND:
-        {
-            int wmId = LOWORD(wParam);
-            // 分析菜单选择:
-            switch (wmId)
-            {
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
-                break;
-            default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: 在此处添加使用 hdc 的任何绘图代码...
-            EndPaint(hWnd, &ps);
-        }
-        break;
+        HANDLE_MSG(hWnd, WM_PAINT, OnPaint);
+
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
+
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
+
 
 // “关于”框的消息处理程序。
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
