@@ -12,6 +12,7 @@ _COM_SMARTPTR_TYPEDEF(IUIAutomationElement, __uuidof(IUIAutomationElement));
 _COM_SMARTPTR_TYPEDEF(IUIAutomationTextPattern2, __uuidof(IUIAutomationTextPattern2));
 _COM_SMARTPTR_TYPEDEF(IUIAutomationTextRange, __uuidof(IUIAutomationTextRange));
 _COM_SMARTPTR_TYPEDEF(IUIAutomationTextRangeArray, __uuidof(IUIAutomationTextRangeArray));
+_COM_SMARTPTR_TYPEDEF(IAccessible, __uuidof(IAccessible));
 
 IUIAutomationTextRangePtr GetTextRange(IUIAutomationElementPtr elem)
 {
@@ -89,6 +90,37 @@ BOOL GetCaretPosUIA(LPPOINT lpPoint)
     return FALSE;
 }
 
+BOOL GetCaretPosMSAA(LPPOINT lpPoint)
+{
+    IAccessiblePtr acc;
+    auto hWnd = GetForegroundWindow();
+    auto dwThreadId = GetWindowThreadProcessId(hWnd, nullptr);
+
+    GUITHREADINFO info = { 0 };
+    info.cbSize = sizeof(info);
+    GetGUIThreadInfo(dwThreadId, &info);
+
+    auto hr = AccessibleObjectFromWindow(info.hwndFocus, static_cast<DWORD>(OBJID_CARET),
+                                         IID_IAccessible, reinterpret_cast<void **>(&acc));
+
+    if (acc)
+    {
+        long x = 0, y = 0, w = 0, h = 0;
+        _variant_t child(CHILDID_SELF);
+        child.vt = VT_I4;
+        hr = acc->accLocation(&x, &y, &w, &h, child);
+
+        if (hr == S_OK)
+        {
+            lpPoint->x = x + w;
+            lpPoint->y = y;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 }
 
 
@@ -97,5 +129,5 @@ BOOL GetCaretPosEx(LPPOINT lpPoint)
     lpPoint->x = 0;
     lpPoint->y = 0;
 
-    return GetCaretPosUIA(lpPoint);
+    return GetCaretPosUIA(lpPoint) || GetCaretPosMSAA(lpPoint);
 }
