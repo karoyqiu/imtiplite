@@ -72,6 +72,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="caret.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="imtiplite.h" />
     <ClInclude Include="resource.h" />
@@ -79,6 +80,8 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="caret.cpp" />
+    <ClInclude Include="debug.h" />
     <ClCompile Include="imtiplite.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

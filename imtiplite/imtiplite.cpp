@@ -3,10 +3,13 @@
 
 #include "stdafx.h"
 #include "imtiplite.h"
+#include "caret.h"
+#include "debug.h"
 
 #define MAX_LOADSTRING 100
 #define WINDOW_WIDTH    9
 #define WINDOW_HEIGHT   9
+#define TIMER_CHECK     7
 
 // 全局变量:
 HINSTANCE hInst;                                // 当前实例
@@ -20,14 +23,15 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+                      _In_opt_ HINSTANCE hPrevInstance,
+                      _In_ LPWSTR    lpCmdLine,
+                      _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: 在此处放置代码。
+    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
     // 初始化全局字符串
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -35,7 +39,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance);
 
     // 执行应用程序初始化:
-    if (!InitInstance (hInstance, nCmdShow))
+    if (!InitInstance(hInstance, nCmdShow))
     {
         return FALSE;
     }
@@ -54,7 +58,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         }
     }
 
-    return (int) msg.wParam;
+    return (int)msg.wParam;
 }
 
 
@@ -70,16 +74,16 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IMTIPLITE));
-    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = WndProc;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = 0;
+    wcex.hInstance = hInstance;
+    wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_IMTIPLITE));
+    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.lpszClassName = szWindowClass;
+    wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
     return RegisterClassExW(&wcex);
 }
@@ -96,23 +100,25 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // 将实例句柄存储在全局变量中
+    hInst = hInstance; // 将实例句柄存储在全局变量中
 
-   HWND hWnd = CreateWindowExW(WS_EX_LAYERED, szWindowClass, szTitle, WS_POPUP,
-      CW_USEDEFAULT, 0, WINDOW_WIDTH, WINDOW_HEIGHT, nullptr, nullptr, hInstance, nullptr);
+    HWND hWnd = CreateWindowExW(WS_EX_LAYERED, szWindowClass, szTitle, WS_POPUP,
+                                CW_USEDEFAULT, 0, WINDOW_WIDTH, WINDOW_HEIGHT, nullptr, nullptr, hInstance, nullptr);
 
-   if (!hWnd)
-   {
-      return FALSE;
-   }
+    if (!hWnd)
+    {
+        return FALSE;
+    }
 
-   auto hRgn = CreateEllipticRgn(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-   SetWindowRgn(hWnd, hRgn, FALSE);
+    auto hRgn = CreateEllipticRgn(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    SetWindowRgn(hWnd, hRgn, FALSE);
 
-   SetLayeredWindowAttributes(hWnd, RGB(0, 0, 0), 200, LWA_ALPHA);
-   ShowWindow(hWnd, nCmdShow);
+    SetLayeredWindowAttributes(hWnd, RGB(0, 0, 0), 200, LWA_ALPHA);
+    ShowWindow(hWnd, nCmdShow);
 
-   return TRUE;
+    SetTimer(hWnd, TIMER_CHECK, 50, nullptr);
+
+    return TRUE;
 }
 
 
@@ -120,13 +126,27 @@ static void OnPaint(HWND hWnd)
 {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hWnd, &ps);
-    
+
     // TODO: 在此处添加使用 hdc 的任何绘图代码...
     static auto hBrush = CreateSolidBrush(RGB(255, 82, 82));
     RECT rect = { 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT };
     FillRect(hdc, &rect, hBrush);
 
     EndPaint(hWnd, &ps);
+}
+
+static void OnTimer(HWND hWnd, UINT nID)
+{
+    if (nID == TIMER_CHECK)
+    {
+        POINT pt = { 0 };
+
+        if (GetCaretPosEx(&pt))
+        {
+            debug("Caret pos: (%d, %d)\n", pt.x, pt.y);
+            SetWindowPos(hWnd, HWND_TOPMOST, pt.x, pt.y, 0, 0, SWP_ASYNCWINDOWPOS | SWP_DEFERERASE | SWP_NOREDRAW | SWP_NOSIZE);
+        }
+    }
 }
 
 
@@ -145,6 +165,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
         HANDLE_MSG(hWnd, WM_PAINT, OnPaint);
+        HANDLE_MSG(hWnd, WM_TIMER, OnTimer);
 
     case WM_DESTROY:
         PostQuitMessage(0);
@@ -153,6 +174,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
+
     return 0;
 }
 
